@@ -8,9 +8,16 @@ import numpy as np
 import healpy as hp
 import asdf
 
+from abacusnbody.metadata import get_meta
+
 DEFAULTS = {}
-DEFAULTS['sim_name'] = "AbacusSummit_base_c000_ph002" # "AbacusSummit_huge_c000_ph201"
+DEFAULTS['sim_name'] = "AbacusSummit_base_c000_ph002"
 DEFAULTS['stem'] = 'DESI_LRG' # 'DESI_ELG' 
+
+"""
+Usage:
+python join_lc_catalog.py --stem DESI_LRG --sim_name AbacusSummit_base_c000_ph002
+"""
 
 def get_down_choice(Z_l, z_l, Delta_z):
     # apply cuts
@@ -43,6 +50,12 @@ def get_mask_ang(mask, RA, DEC, nest, nside, lonlat=True):
     return mask[ipix] == 1.
 
 def main(sim_name, stem):
+
+    # additional specs of the tracer
+    extra = '_'.join(stem.split('_')[2:])
+    stem = '_'.join(stem.split('_')[:2])
+    if extra != '': extra = '_'+extra
+    
     # parameter choices
     if stem == 'DESI_LRG': 
         redshifts = [0.300, 0.350, 0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]
@@ -59,7 +72,7 @@ def main(sim_name, stem):
     elif "ELG" in stem.upper():
         tracer = "ELG"
     else:
-        print("AHHHH you've dealt me a mortal wound"); quit()
+        print("Other tracers not yet implemented"); quit()
 
     # number of randoms
     want_rands = True    
@@ -68,21 +81,26 @@ def main(sim_name, stem):
         
     # immutables
     sim_dir = "/global/cfs/cdirs/desi/cosmosim/Abacus/halo_light_cones/"
-    #lens_dir = f"/global/cfs/cdirs/desi/cosmosim/AbacusLensing/{sim_name}/"
-    lens_dir = f"/global/cfs/cdirs/desi/public/cosmosim/boryanah_AbacusLensing/{sim_name}/"
-    save_dir = Path("/global/project/projectdirs/desi/users/boryanah/kSZ_recon/")
+    mask_dir = f"/global/cfs/cdirs/desi/public/cosmosim/AbacusLensing/v1/{sim_name}/"
+    mock_dir = Path("/global/project/projectdirs/desi/users/boryanah/kSZ_recon/")
     offset = 10. # Mpc/h    
+
+    # directory where mock catalogs are saved
+    save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/") # old
+    #save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
+    mock_dir = save_dir / sim_name / "tmp" # old # remove tmp
+    os.makedirs(mock_dir, exist_ok=True)
     
     # read from simulation header
-    header = asdf.open(f"{sim_dir}/{sim_name}/z{redshifts[0]:.3f}/lc_halo_info.asdf")['header']
-    Lbox = header['BoxSizeHMpc']
+    header = get_meta(sim_name, 0.1)
+    Lbox = header['BoxSizeHMpc'] # cMpc/h
     mpart = header['ParticleMassHMsun'] # 5.7e10, 2.1e9
     origins = np.array(header['LightConeOrigins']).reshape(-1,3)
     origin = origins[0]
     print(f"mpart = {mpart:.2e}")
     
     # read in file names to determine all the available z's
-    mask_fns = sorted(glob.glob(lens_dir+f"mask_0*.asdf"))
+    mask_fns = sorted(glob.glob(mask_dir+f"mask_0*.asdf"))
     z_srcs = []
     for i in range(len(mask_fns)):
         z_srcs.append(asdf.open(mask_fns[i])['header']['SourceRedshift'])
@@ -125,7 +143,7 @@ def main(sim_name, stem):
         
     # find highest redshift
     #z_max = np.max(redshifts)
-    z_max = Mean_z+Delta_z#/2. # TESTING!!!!!!!!!!
+    z_max = Mean_z+Delta_z
     print("number of galaxies", len(Z))
     
     # apply masking
@@ -154,11 +172,9 @@ def main(sim_name, stem):
     RAND_RA, RAND_DEC, RAND_Z, RAND_POS = RAND_RA[choice], RAND_DEC[choice], RAND_Z[choice], RAND_POS[choice]
     print("masked fraction", np.sum(choice)/len(choice)*100.)
     
-    # save into file
-    save_tmp_dir = Path(save_dir) / sim_name / "tmp"
-    os.makedirs(save_tmp_dir, exist_ok=True)
-    np.savez(save_tmp_dir / f"galaxies_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz", RA=RA, DEC=DEC, Z_RSD=Z_RSD, Z=Z, VEL=VEL, POS=POS, POS_RSD=POS_RSD, UNIT_LOS=UNIT_LOS)
-    np.savez(save_tmp_dir / f"randoms_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz", RAND_RA=RAND_RA, RAND_DEC=RAND_DEC, RAND_Z=RAND_Z, RAND_POS=RAND_POS)
+    # save to file
+    np.savez(mock_dir / f"galaxies_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz", RA=RA, DEC=DEC, Z_RSD=Z_RSD, Z=Z, VEL=VEL, POS=POS, POS_RSD=POS_RSD, UNIT_LOS=UNIT_LOS)
+    np.savez(mock_dir / f"randoms_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz", RAND_RA=RAND_RA, RAND_DEC=RAND_DEC, RAND_Z=RAND_Z, RAND_POS=RAND_POS)
     
 class ArgParseFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass
