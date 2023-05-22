@@ -1,0 +1,8 @@
+*~
+*sh
+__pycache__/
+*.pyc
+figs/
+data/
+old_code/
+USEFUL
