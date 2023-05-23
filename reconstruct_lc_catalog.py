@@ -39,9 +39,10 @@ def main(sim_name, stem, nmesh, sr, rectype, convention):
         recfunc = MultiGridReconstruction
 
     # directory where mock catalogs are saved
-    mock_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/") # old
-    #mock_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
-    mock_dir = mock_dir / sim_name / "tmp" # old # remove tmp
+    #mock_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/") # old
+    mock_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
+    #mock_dir = mock_dir / sim_name / "tmp" # old # remove tmp
+    mock_dir = mock_dir / sim_name 
     
     # parameter choices
     if stem == 'DESI_LRG': 

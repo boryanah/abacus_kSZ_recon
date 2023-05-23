@@ -23,8 +23,8 @@ from abacusnbody.hod.abacus_hod import AbacusHOD
 
 """
 python get_hod.py --path2config config/desi_lc_hod.yaml
-python get_hod.py --path2config config/desi_box_hod.yaml
 python get_hod.py --path2config config/desi_lc_hod_high_density.yaml
+python get_hod.py --path2config config/desi_box_hod.yaml
 python get_hod.py --path2config config/desi_box_hod_high_density.yaml
 """
 
@@ -194,7 +194,7 @@ def main(path2config):
 
     # requested redshifts
     if 'box' in path2config:
-        redshifts = [0.5, 0.8]
+        redshifts = [0.5]
     else:
         redshifts = [0.300, 0.350, 0.400, 0.450, 0.500, 0.575, 0.650, 0.725,  0.800, 0.875, 0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400]
     want_rsds = [True, False]
@@ -204,6 +204,7 @@ def main(path2config):
     for k in range(len(phases)):
         # TESTING!!!!!!!!!!!!!!!!!
         #if phases[k] != 2: continue
+        if phases[k] <= 10: continue
         
         sim_name = f"AbacusSummit_base_c000_ph{phases[k]:03d}"
         print(sim_name)

@@ -21,6 +21,7 @@ DEFAULTS['convention'] = "recsym"
 """
 Usage:
 python analyze_reconstruction.py --sim_name AbacusSummit_base_c000_ph002 --box_lc box --stem DESI_LRG --nmesh 1024 --sr 12.5 --rectype MG --convention recsym
+python analyze_reconstruction.py --sim_name AbacusSummit_base_c000_ph002 --box_lc lc --stem DESI_LRG --nmesh 1024 --sr 12.5 --rectype MG --convention recsym
 """
 
 def main(sim_name, box_lc, stem, nmesh, sr, rectype, convention, cut_edges=False):
@@ -129,9 +130,10 @@ def main(sim_name, box_lc, stem, nmesh, sr, rectype, convention, cut_edges=False
         Lbox = get_meta(sim_name, 0.1)['BoxSize'] # cMpc/h
                 
         # load galaxies and randoms
-        mock_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/") # old
-        #mock_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
-        mock_dir = mock_dir / sim_name / "tmp" # old # remove tmp
+        #mock_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/") # old
+        mock_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
+        #mock_dir = mock_dir / sim_name / "tmp" # old
+        mock_dir = mock_dir / sim_name 
         data = np.load(mock_dir / f"galaxies_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz")
         Z_RSD = data['Z_RSD']
         Z = data['Z']
@@ -139,11 +141,11 @@ def main(sim_name, box_lc, stem, nmesh, sr, rectype, convention, cut_edges=False
         assert len(Z) == vel.shape[0]
 
         # construct cuts in redshift
-        Delta_z_cut = 0.1
+        Delta_z_cut = 0.2
         choice = (Z < Mean_z + Delta_z_cut) & (Z >= Mean_z - Delta_z_cut)
 
         # construct cuts near the edges of the box
-        offset = 600.
+        offset = 200.
         choice &= (POS[:, 0] > -Lbox/2.+offset) & (POS[:, 0] < Lbox/2.-offset)
         choice &= (POS[:, 1] > -Lbox/2.+offset)
         choice &= (POS[:, 2] > -Lbox/2.+offset)

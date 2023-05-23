@@ -62,9 +62,9 @@ def main(sim_name, stem):
         Mean_z = 0.5
         Delta_z = 0.4
     elif stem == 'DESI_ELG':
-        redshifts = [0.800]
+        redshifts = [0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400]
         Mean_z = 0.8
-        Delta_z = 0.1
+        Delta_z = 0.3
         
     # select tracer
     if "LRG" in stem.upper():
@@ -79,17 +79,17 @@ def main(sim_name, stem):
     if want_rands:
         rands_fac = 20
         
-    # immutables
-    sim_dir = "/global/cfs/cdirs/desi/cosmosim/Abacus/halo_light_cones/"
+    # directory with healpix masks and halo light cone parameters
     mask_dir = f"/global/cfs/cdirs/desi/public/cosmosim/AbacusLensing/v1/{sim_name}/"
-    mock_dir = Path("/global/project/projectdirs/desi/users/boryanah/kSZ_recon/")
     offset = 10. # Mpc/h    
 
     # directory where mock catalogs are saved
-    save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/") # old
-    #save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
-    mock_dir = save_dir / sim_name / "tmp" # old # remove tmp
-    os.makedirs(mock_dir, exist_ok=True)
+    mock_dir = Path(f"/pscratch/sd/b/boryanah/AbacusHOD_scratch/mocks_lc_output_kSZ_recon{extra}/")
+    #save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/") # old
+    save_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/") 
+    #save_sub_dir = save_dir / sim_name / "tmp" # old
+    save_sub_dir = save_dir / sim_name
+    os.makedirs(save_sub_dir, exist_ok=True)
     
     # read from simulation header
     header = get_meta(sim_name, 0.1)
@@ -109,8 +109,8 @@ def main(sim_name, stem):
     
     # combine together the redshifts
     for i, redshift in enumerate(redshifts):
-        save_sub_dir = Path(save_dir) / sim_name / (f"z{redshift:.3f}") 
-        data = np.load(save_sub_dir / f"galaxies_{tracer}_pos.npz")
+        mock_sub_dir = Path(mock_dir) / sim_name / (f"z{redshift:.3f}") 
+        data = np.load(mock_sub_dir / f"galaxies_{tracer}_pos.npz")
         if i != 0:
             RA = np.hstack((RA, data['RA']))
             DEC = np.hstack((DEC, data['DEC']))
@@ -129,7 +129,7 @@ def main(sim_name, stem):
             POS = data['POS']
             POS_RSD = data['POS_RSD']
             UNIT_LOS = data['UNIT_LOS']
-        data = np.load(save_sub_dir / f"randoms_{tracer}_pos.npz")
+        data = np.load(mock_sub_dir / f"randoms_{tracer}_pos.npz")
         if i != 0:
             RAND_RA = np.hstack((RAND_RA, data['RAND_RA']))
             RAND_DEC = np.hstack((RAND_DEC, data['RAND_DEC']))
@@ -173,8 +173,8 @@ def main(sim_name, stem):
     print("masked fraction", np.sum(choice)/len(choice)*100.)
     
     # save to file
-    np.savez(mock_dir / f"galaxies_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz", RA=RA, DEC=DEC, Z_RSD=Z_RSD, Z=Z, VEL=VEL, POS=POS, POS_RSD=POS_RSD, UNIT_LOS=UNIT_LOS)
-    np.savez(mock_dir / f"randoms_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz", RAND_RA=RAND_RA, RAND_DEC=RAND_DEC, RAND_Z=RAND_Z, RAND_POS=RAND_POS)
+    np.savez(save_sub_dir / f"galaxies_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz", RA=RA, DEC=DEC, Z_RSD=Z_RSD, Z=Z, VEL=VEL, POS=POS, POS_RSD=POS_RSD, UNIT_LOS=UNIT_LOS)
+    np.savez(save_sub_dir / f"randoms_{tracer}_prerecon_meanz{Mean_z:.3f}_deltaz{Delta_z:.3f}.npz", RAND_RA=RAND_RA, RAND_DEC=RAND_DEC, RAND_Z=RAND_Z, RAND_POS=RAND_POS)
     
 class ArgParseFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass
