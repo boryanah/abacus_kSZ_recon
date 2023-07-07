@@ -8,10 +8,11 @@ sim_params:
     output_dir: '/pscratch/sd/b/boryanah/AbacusHOD_scratch/mocks_box_output_kSZ_recon/'
 #    subsample_dir: '/pscratch/sd/b/boryanah/AbacusHOD_scratch/mocks_box_subsample/' # empty
     subsample_dir: '//pscratch/sd/s/sihany/summit_subsamples_cleaned_desi/'
-    z_mock: 0.500 
+    z_mock: 0.500
+    cleaned_halos: True
     
 prepare_sim:
-    Nparallel_load: 17
+    Nparallel_load: 4
     
 # HOD parameters
 HOD_params:

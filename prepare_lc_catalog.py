@@ -20,6 +20,7 @@ DEFAULTS['stem'] = 'DESI_LRG' # 'DESI_ELG'
 """
 Usage:
 python prepare_lc_catalog.py --stem DESI_LRG --sim_name AbacusSummit_base_c000_ph002
+python prepare_lc_catalog.py --stem DESI_LRG --sim_name AbacusSummit_huge_c000_ph201
 """
 
 def get_norm(gals_pos, origin):
@@ -77,9 +78,8 @@ def main(sim_name, stem):
     if stem == 'DESI_LRG': 
         redshifts = [0.300, 0.350, 0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]
     elif stem == 'DESI_ELG':
-        redshifts = [0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400]
-        Mean_z = 0.8
-        Delta_z = 0.3
+        #redshifts = [0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400]
+        redshifts = [0.300, 0.350, 0.400, 0.450, 0.500, 0.575, 0.650, 0.725, 0.800, 0.875, 0.950, 1.025, 1.100]
         
     # select tracer
     if "LRG" in stem.upper():

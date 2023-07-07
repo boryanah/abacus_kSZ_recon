@@ -19,36 +19,13 @@ def is_in_cube(x_pos, y_pos, z_pos, verts):
     mask = (x_pos > x_min) & (x_pos <= x_max) & (y_pos > y_min) & (y_pos <= y_max) & (z_pos > z_min) & (z_pos <= z_max)
     return mask
 
-def gen_rand(N, chi_min, chi_max, fac, Lbox, offset, origins):
-    # number of randoms to generate
-    N_rands = fac*N
+def is_in_lc(x_cart, y_cart, z_cart, chi_max, Lbox, offset, origins):
 
     # location of observer
     origins = np.atleast_2d(origins)
     origin = origins[0]
     if origins.shape[0] == 1: # then this has to be the huge box
         assert np.all(np.isclose(origin, 0.)), "this is probably `base` box, so pass all three origins"
-
-    # generate randoms on the unit sphere 
-    if origins.shape[0] == 1: # then this has to be the huge box
-        costheta = np.random.rand(N_rands)*2.-1.
-        phi = np.random.rand(N_rands)*2.*np.pi
-    if origins.shape[0] == 3: # then this has to be the base box
-        costheta = np.random.rand(N_rands)*1.
-        phi = np.random.rand(N_rands)*np.pi/2.
-    theta = np.arccos(costheta)
-    x_cart = np.sin(theta)*np.cos(phi)
-    y_cart = np.sin(theta)*np.sin(phi)
-    z_cart = np.cos(theta)
-    rands_chis = np.random.rand(N_rands)*(chi_max-chi_min)+chi_min
-
-    # unit vector pointing to each random
-    rands_norm = np.vstack((x_cart, y_cart, z_cart)).T
-    
-    # multiply the unit vectors by comoving distance to observer
-    x_cart *= rands_chis
-    y_cart *= rands_chis
-    z_cart *= rands_chis
     
     # vector between centers of the cubes and origin in Mpc/h (i.e. placing observer at 0, 0, 0)
     box0 = np.array([0., 0., 0.])-origin
@@ -89,8 +66,44 @@ def gen_rand(N, chi_min, chi_max, fac, Lbox, offset, origins):
         mask = mask0 | mask1 | mask2
     else:
         mask = mask0
-    print("masked randoms = ", np.sum(mask)*100./len(mask))
+    print("percentage randoms inside lc geometry = ", np.sum(mask)*100./len(mask))
 
+    return mask
+    
+def gen_rand(N, chi_min, chi_max, fac, Lbox, offset, origins):
+    # number of randoms to generate
+    N_rands = fac*N
+
+    # location of observer
+    origins = np.atleast_2d(origins)
+    origin = origins[0]
+    if origins.shape[0] == 1: # then this has to be the huge box
+        assert np.all(np.isclose(origin, 0.)), "this is probably `base` box, so pass all three origins"
+
+    # generate randoms on the unit sphere 
+    if origins.shape[0] == 1: # then this has to be the huge box
+        costheta = np.random.rand(N_rands)*2.-1.
+        phi = np.random.rand(N_rands)*2.*np.pi
+    if origins.shape[0] == 3: # then this has to be the base box
+        costheta = np.random.rand(N_rands)*1.
+        phi = np.random.rand(N_rands)*np.pi/2.
+    theta = np.arccos(costheta)
+    x_cart = np.sin(theta)*np.cos(phi)
+    y_cart = np.sin(theta)*np.sin(phi)
+    z_cart = np.cos(theta)
+    rands_chis = np.random.rand(N_rands)*(chi_max-chi_min)+chi_min
+
+    # unit vector pointing to each random
+    rands_norm = np.vstack((x_cart, y_cart, z_cart)).T
+    
+    # multiply the unit vectors by comoving distance to observer
+    x_cart *= rands_chis
+    y_cart *= rands_chis
+    z_cart *= rands_chis
+    
+    # check whether the coordinates are within the box boundaries
+    mask = is_in_lc(x_cart, y_cart, z_cart, chi_max, Lbox, offset, origins)
+    
     rands_pos = np.vstack((x_cart[mask], y_cart[mask], z_cart[mask])).T
     rands_norm = rands_norm[mask]
     rands_chis = rands_chis[mask]

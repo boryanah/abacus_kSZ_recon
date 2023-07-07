@@ -24,13 +24,18 @@ from abacusnbody.hod.abacus_hod import AbacusHOD
 """
 python get_hod.py --path2config config/desi_lc_hod.yaml
 python get_hod.py --path2config config/desi_lc_hod_high_density.yaml
+python get_hod.py --path2config config/desi_lc_hod_bgs.yaml
 python get_hod.py --path2config config/desi_box_hod.yaml
 python get_hod.py --path2config config/desi_box_hod_high_density.yaml
+python get_hod.py --path2config config/desi_box_hod_bgs.yaml
+
+python get_hod.py --path2config config/desi_lc_hod.yaml --sim_name AbacusSummit_huge_c000_ph201
+python get_hod.py --path2config config/desi_huge_box_hod.yaml --sim_name AbacusSummit_huge_c000_ph201
 """
 
 DEFAULTS = {}
 DEFAULTS['path2config'] = 'config/desi_box_hod.yaml'
-#DEFAULTS['path2config'] = 'config/desi_lc_hod.yaml'
+DEFAULTS['sim_name'] = None
 
 # LRG bounds dictionary
 LRG_dic = {
@@ -84,7 +89,7 @@ def get_prime(param, z, z1, z2, p1, p2):
     if p > p_max: p = p_max
     return p
 
-def main(path2config):
+def main(path2config, sim_name):
 
     # load the yaml parameters
     config = yaml.safe_load(open(path2config))
@@ -145,8 +150,20 @@ def main(path2config):
         logM1_LRG = np.array(logM1_LRG)
         logM_cut_ELG = np.array(logM_cut_ELG)
         logM1_ELG = np.array(logM1_ELG)
-        logM_cut_LRG -= 0.3
-        logM1_LRG -= 0.3
+        logM_cut_LRG -= 0.3 # 0.0015668245
+        logM1_LRG -= 0.3 # 0.0015668245
+        logM_cut_ELG -= 0.3
+        logM1_ELG -= 0.3
+
+    if "bgs" in path2config:
+        logM_cut_LRG = np.array(logM_cut_LRG)
+        logM1_LRG = np.array(logM1_LRG)
+        alpha_LRG = np.array(alpha_LRG)
+        logM_cut_ELG = np.array(logM_cut_ELG)
+        logM1_ELG = np.array(logM1_ELG)
+        alpha_LRG[1] += 0.3
+        logM_cut_LRG[1] -= 1.
+        logM1_LRG[1] -= 1.
         logM_cut_ELG -= 0.3
         logM1_ELG -= 0.3
     
@@ -199,14 +216,19 @@ def main(path2config):
         redshifts = [0.300, 0.350, 0.400, 0.450, 0.500, 0.575, 0.650, 0.725,  0.800, 0.875, 0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400]
     want_rsds = [True, False]
     print("doing", redshifts)
+    print(sim_name)
 
-    phases = np.arange(25, dtype=np.int) # 15 0.875 is the last one
+    if sim_name is None:
+        do_all = True
+    else:
+        do_all = False
+    
+    phases = np.arange(25, dtype=np.int)
     for k in range(len(phases)):
-        # TESTING!!!!!!!!!!!!!!!!!
-        #if phases[k] != 2: continue
-        if phases[k] <= 10: continue
-        
-        sim_name = f"AbacusSummit_base_c000_ph{phases[k]:03d}"
+
+        # else is whatever was given
+        if do_all:
+            sim_name = f"AbacusSummit_base_c000_ph{phases[k]:03d}"
         print(sim_name)
         sim_params['sim_name'] = sim_name
         
@@ -314,6 +336,8 @@ def main(path2config):
                 mock_dict = newBall.run_hod(tracers=newBall.tracers, want_rsd=want_rsd, reseed=None, write_to_disk=write_to_disk, Nthread = 16)
                 print("Done redshift ", redshift, "took time ", time.time() - start)
 
+        if "huge" in sim_name: break
+        
 class ArgParseFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass
 
@@ -321,5 +345,6 @@ if __name__ == "__main__":
     # parsing arguments
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=ArgParseFormatter)
     parser.add_argument('--path2config', help='Path to the config file', default=DEFAULTS['path2config'])
+    parser.add_argument('--sim_name', help='Specific simulation name', default=DEFAULTS['sim_name'])
     args = vars(parser.parse_args())
     main(**args)

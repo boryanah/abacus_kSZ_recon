@@ -9,6 +9,7 @@ sim_params:
 #    subsample_dir: '/pscratch/sd/b/boryanah/AbacusHOD_scratch/mocks_box_subsample/' # empty
     subsample_dir: '//pscratch/sd/s/sihany/summit_subsamples_cleaned_desi/'
     z_mock: 0.500 
+    cleaned_halos: True
     
 prepare_sim:
     Nparallel_load: 17

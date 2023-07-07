@@ -21,7 +21,7 @@ DEFAULTS['convention'] = "recsym"
 
 """
 Usage:
-python reconstruct_box_catalog.py --sim_name AbacusSummit_base_c000_ph000 --redshift 0.5 --tracer LRG --nmesh 1024 --sr 12.5 --rectype MG --convention recsym
+python reconstruct_box_catalog.py --sim_name AbacusSummit_base_c000_ph002 --redshift 0.5 --tracer LRG --nmesh 1024 --sr 12.5 --rectype MG --convention recsym
 
 # Notes to self (Boryana):
 # If you want redshift-dependent bias, then do `recon_tracer.mesh_delta /= b_z` after `recon.set_density_contrast`, where `mesh_delta` is a 512^3 array, and set bias to 1.
@@ -86,6 +86,17 @@ def main(sim_name, redshift, tracer, nmesh, sr, rectype, convention):
     f = ascii.read(fn_rsd)
     PositionRSD = np.vstack((f['x'], f['y'], f['z'])).T
 
+    
+    # TESTING!!!!!!!!!!!!!!!!!! downsample
+    """
+    N_target = 0.0005191514900464895 * 2000.**3 #1148610.5 # 2442646.7
+    f = N_target/Position.shape[0]
+    choice = np.random.rand(Position.shape[0]) < f
+    Position = Position[choice]
+    Velocity = Velocity[choice]
+    PositionRSD = PositionRSD[choice]
+    """
+    
     # wrap around box so that pos range from [0, Lbox)
     Position %= Lbox
     PositionRSD %= Lbox
@@ -95,6 +106,15 @@ def main(sim_name, redshift, tracer, nmesh, sr, rectype, convention):
     RandomPosition = np.vstack((np.random.rand(rands_fac*Position.shape[0]), np.random.rand(rands_fac*Position.shape[0]), np.random.rand(rands_fac*Position.shape[0])))*Lbox
     RandomPosition = RandomPosition.T
 
+    
+    # TESTING
+    """
+    N_target *= 20
+    f = N_target/RandomPosition.shape[0]
+    choice = np.random.rand(RandomPosition.shape[0]) < f
+    RandomPosition = RandomPosition[choice]
+    """
+    
     # run reconstruction on the mocks w/o RSD
     print('Recon First tracer')
     recon_tracer = recfunc(f=ff, bias=bias, nmesh=nmesh, los=los, positions=Position, boxsize=Lbox, boxcenter=(Lbox/2, Lbox/2, Lbox/2), # boxcenter not needed when wrap=True
@@ -153,7 +173,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=ArgParseFormatter)
     parser.add_argument('--sim_name', help='Simulation name', default=DEFAULTS['sim_name'])
     parser.add_argument('--redshift', help='Redshift', type=float, default=DEFAULTS['redshift'])
-    parser.add_argument('--tracer', help='Galaxy type', default=DEFAULTS['tracer'], choices=["LRG", "ELG", "QSO", "LRG_high_density", "ELG_high_density"])
+    parser.add_argument('--tracer', help='Galaxy type', default=DEFAULTS['tracer'], choices=["LRG", "ELG", "QSO", "LRG_high_density", "LRG_bgs", "ELG_high_density"])
     parser.add_argument('--nmesh', help='Number of cells per dimension for reconstruction', type=int, default=DEFAULTS['nmesh'])
     parser.add_argument('--sr', help='Smoothing radius', type=float, default=DEFAULTS['sr'])
     parser.add_argument('--rectype', help='Reconstruction type', default=DEFAULTS['rectype'], choices=["IFT", "MG", "IFTP"])
