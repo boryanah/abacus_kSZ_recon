@@ -55,7 +55,7 @@ def main(sim_name, stem):
 
     # directory where mock catalogs are saved
     mock_dir = Path(f"/pscratch/sd/b/boryanah/AbacusHOD_scratch/mocks_lc_output_kSZ_recon{extra}/")
-    save_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/") 
+    save_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/new/mocks_lc_output_kSZ_recon{extra}/") 
     save_sub_dir = save_dir / sim_name
     os.makedirs(save_sub_dir, exist_ok=True)
 

@@ -21,9 +21,10 @@ python apply_desi_mask.py --sim_name AbacusSummit_huge_c000_ph201 --stem DESI_LR
 """
 
 def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
+
     # small area
     if "_small_area" in nz_type:
-        nz_type = nz_type.split("_small_area")[0]
+        nz_type, small_str = nz_type.split("_small_area")
         want_small_area = True
     else:
         want_small_area = False
@@ -65,36 +66,52 @@ def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
         print("Other tracers not yet implemented"); quit()
     
     # directory where mock catalogs are saved
-    mock_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
+    mock_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/new/mocks_lc_output_kSZ_recon{extra}/")
     mock_dir = mock_dir / sim_name 
 
     if not want_small_area:
-
+    
         # names of final files
         final_gals_fn = mock_dir / f"galaxies_{tracer}{fakelc_str}{photoz_str}{mask_str}_prerecon{nz_str}.npz"
         final_rand_fn = mock_dir / f"randoms_{tracer}{fakelc_str}{photoz_str}{mask_str}_prerecon{nz_str}.npz"
-        if os.path.exists(final_gals_fn) and os.path.exists(final_rand_fn): return
+        #if os.path.exists(final_gals_fn) and os.path.exists(final_rand_fn): return
 
         # name of the file
         photoz_str_def = f"_zerr{0.:.1f}"
-        maskbit_fn = mock_dir / f"galaxies_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_{tracer.lower()}mask.fits.gz"
-        maskgrz_fn = mock_dir / f"galaxies_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_nexp.fits"
-        rand_maskbit_fn = mock_dir / f"randoms_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_{tracer.lower()}mask.fits.gz"
-        rand_maskgrz_fn = mock_dir / f"randoms_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_nexp.fits"
+        mock_dir_def = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
+        mock_dir_def = mock_dir_def / sim_name
+        os.makedirs(mock_dir_def, exist_ok=True)
+        maskbit_fn = mock_dir_def / f"galaxies_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_{tracer.lower()}mask.fits.gz"
+        maskgrz_fn = mock_dir_def / f"galaxies_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_nexp.fits"
+        rand_maskbit_fn = mock_dir_def / f"randoms_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_{tracer.lower()}mask.fits.gz"
+        rand_maskgrz_fn = mock_dir_def / f"randoms_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_nexp.fits"
         gal_fn = mock_dir / f"galaxies_{tracer}{fakelc_str}{photoz_str}_prerecon{nz_str}.npz"
         rand_fn = mock_dir / f"randoms_{tracer}{fakelc_str}{photoz_str}_prerecon{nz_str}.npz"
 
+        already_job = True
         if (not os.path.exists(maskbit_fn)) or (not os.path.exists(maskgrz_fn)) or (not os.path.exists(rand_maskbit_fn)) or (not os.path.exists(rand_maskgrz_fn)):
             shift_str = "--shift" if "base" in sim_name else ""
             os.system("source /global/common/software/desi/desi_environment.sh 23.1")
             if (not os.path.exists(maskbit_fn)):
-                os.system(f"srun -N 1 -C cpu -c 256 -t 01:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_bitmask.py --tracer {tracer.lower()} --input {gal_fn} --output {maskbit_fn} {shift_str}")
+                if already_job:
+                    os.system(f"python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_bitmask.py --tracer {tracer.lower()} --input {gal_fn} --output {maskbit_fn} {shift_str}")
+                else:
+                    os.system(f"srun -N 1 -C cpu -c 256 -t 01:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_bitmask.py --tracer {tracer.lower()} --input {gal_fn} --output {maskbit_fn} {shift_str}")
             if (not os.path.exists(maskgrz_fn)):
-                os.system(f"srun -N 1 -C cpu -c 256 -t 01:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_nexp.py --input {gal_fn} --output {maskgrz_fn} {shift_str}")
+                if already_job:
+                    os.system(f"python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_nexp.py --input {gal_fn} --output {maskgrz_fn} {shift_str}")
+                else:
+                    os.system(f"srun -N 1 -C cpu -c 256 -t 01:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_nexp.py --input {gal_fn} --output {maskgrz_fn} {shift_str}")
             if (not os.path.exists(rand_maskbit_fn)):
-                os.system(f"srun -N 1 -C cpu -c 256 -t 02:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_bitmask.py --tracer {tracer.lower()} --input {rand_fn} --output {rand_maskbit_fn} {shift_str}")
+                if already_job:
+                    os.system(f"python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_bitmask.py --tracer {tracer.lower()} --input {rand_fn} --output {rand_maskbit_fn} {shift_str}")
+                else:
+                    os.system(f"srun -N 1 -C cpu -c 256 -t 02:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_bitmask.py --tracer {tracer.lower()} --input {rand_fn} --output {rand_maskbit_fn} {shift_str}")
             if (not os.path.exists(rand_maskgrz_fn)):
-                os.system(f"srun -N 1 -C cpu -c 256 -t 02:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_nexp.py --input {rand_fn} --output {rand_maskgrz_fn} {shift_str}")
+                if already_job:
+                    os.system(f"python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_nexp.py --input {rand_fn} --output {rand_maskgrz_fn} {shift_str}")
+                else:
+                    os.system(f"srun -N 1 -C cpu -c 256 -t 02:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_nexp.py --input {rand_fn} --output {rand_maskgrz_fn} {shift_str}")
 
         # load the galaxies
         data = np.load(gal_fn)
@@ -114,7 +131,34 @@ def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
         mask &= maskbit[f"{tracer.lower()}_mask"] == 0
         print(len(mask), len(Z))
         print(str(gal_fn), str(maskbit_fn))
+
+        # TESTING!!!!!!!!!!!!!!!!!!!!!
+        if not len(mask) == len(Z):
+            mock_dir_def = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/new/mocks_lc_output_kSZ_recon{extra}/")
+            mock_dir_def = mock_dir_def / sim_name 
+            maskbit_fn = mock_dir_def / f"galaxies_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_{tracer.lower()}mask.fits.gz"
+            maskgrz_fn = mock_dir_def / f"galaxies_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_nexp.fits"
+            rand_maskbit_fn = mock_dir_def / f"randoms_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_{tracer.lower()}mask.fits.gz"
+            rand_maskgrz_fn = mock_dir_def / f"randoms_{tracer}{fakelc_str}{photoz_str_def}_prerecon{nz_str}_nexp.fits"
+
+            if (not os.path.exists(maskbit_fn)) or (not os.path.exists(maskgrz_fn)) or (not os.path.exists(rand_maskbit_fn)) or (not os.path.exists(rand_maskgrz_fn)):
+                shift_str = "--shift" if "base" in sim_name else ""
+                os.system("source /global/common/software/desi/desi_environment.sh 23.1")
+                if (not os.path.exists(maskbit_fn)):
+                    os.system(f"srun -N 1 -C cpu -c 256 -t 01:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_bitmask.py --tracer {tracer.lower()} --input {gal_fn} --output {maskbit_fn} {shift_str}")
+                if (not os.path.exists(maskgrz_fn)):
+                    os.system(f"srun -N 1 -C cpu -c 256 -t 01:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_nexp.py --input {gal_fn} --output {maskgrz_fn} {shift_str}")
+                if (not os.path.exists(rand_maskbit_fn)):
+                    os.system(f"srun -N 1 -C cpu -c 256 -t 02:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_bitmask.py --tracer {tracer.lower()} --input {rand_fn} --output {rand_maskbit_fn} {shift_str}")
+                if (not os.path.exists(rand_maskgrz_fn)):
+                    os.system(f"srun -N 1 -C cpu -c 256 -t 02:00:00 -q interactive python /global/u1/b/boryanah/repos/desi-examples/bright_star_mask/read_pixel_nexp.py --input {rand_fn} --output {rand_maskgrz_fn} {shift_str}")
+
+            maskbit = fitsio.read(maskbit_fn)
+            maskgrz = fitsio.read(maskgrz_fn)
+            mask = (maskgrz["PIXEL_NOBS_G"] > 0) & (maskgrz["PIXEL_NOBS_R"] > 0) & (maskgrz["PIXEL_NOBS_Z"] > 0)
+            mask &= maskbit[f"{tracer.lower()}_mask"] == 0
         assert len(mask) == len(Z)
+
         print("mask percentage", np.sum(mask)/len(mask)*100.)
         del maskbit, maskgrz; gc.collect()
 
@@ -159,7 +203,7 @@ def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
 
     else:
         # names of final files
-        mask_str = "_small_area"
+        mask_str = "_small_area"+small_str
         final_gals_fn = mock_dir / f"galaxies_{tracer}{fakelc_str}{photoz_str}{mask_str}_prerecon{nz_str}.npz"
         final_rand_fn = mock_dir / f"randoms_{tracer}{fakelc_str}{photoz_str}{mask_str}_prerecon{nz_str}.npz"
         if os.path.exists(final_gals_fn) and os.path.exists(final_rand_fn): return
@@ -181,7 +225,10 @@ def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
 
         # mask
         min_radec = 0.
-        max_radec = 20.
+        if small_str != "":
+            max_radec = float(small_str)
+        else:
+            max_radec = 20.
         mask = (RA > min_radec) & (RA < max_radec)
         mask &= (DEC > min_radec) & (DEC < max_radec)
 
@@ -217,7 +264,7 @@ def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
 
         # save to file
         np.savez(final_rand_fn, RAND_RA=RAND_RA, RAND_DEC=RAND_DEC, RAND_Z=RAND_Z, RAND_POS=RAND_POS)        
-        
+    
 class ArgParseFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass
 

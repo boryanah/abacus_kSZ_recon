@@ -29,6 +29,12 @@ python get_hod.py --path2config config/desi_box_hod.yaml
 python get_hod.py --path2config config/desi_box_hod_high_density.yaml
 python get_hod.py --path2config config/desi_box_hod_bgs.yaml
 
+# new tests
+python get_hod.py --path2config config/desi_lc_hod_high_density.yaml --sim_name AbacusSummit_base_c000_ph002
+python get_hod.py --path2config config/desi_lc_hod_uchuu.yaml --sim_name AbacusSummit_base_c000_ph002
+python get_hod.py --path2config config/desi_box_hod_high_density.yaml --sim_name AbacusSummit_base_c000_ph002
+python get_hod.py --path2config config/desi_box_hod_uchuu.yaml # --sim_name AbacusSummit_base_c000_ph002
+
 python get_hod.py --path2config config/desi_lc_hod.yaml --sim_name AbacusSummit_huge_c000_ph201
 python get_hod.py --path2config config/desi_huge_box_hod.yaml --sim_name AbacusSummit_huge_c000_ph201
 """
@@ -145,28 +151,52 @@ def main(path2config, sim_name):
     alpha1_ELG = [-2.98799382,-2.59018638]
     beta_ELG = [9.94108137,6.7696066]
 
+    logM_cut_LRG = np.array(logM_cut_LRG)
+    logM1_LRG = np.array(logM1_LRG)
+    kappa_LRG = np.array(kappa_LRG)
+    sigma_LRG = np.array(sigma_LRG)
+    alpha_LRG = np.array(alpha_LRG)
+    logM_cut_ELG = np.array(logM_cut_ELG)
+    logM1_ELG = np.array(logM1_ELG)
+    
     if "high_density" in path2config:
-        logM_cut_LRG = np.array(logM_cut_LRG)
-        logM1_LRG = np.array(logM1_LRG)
-        logM_cut_ELG = np.array(logM_cut_ELG)
-        logM1_ELG = np.array(logM1_ELG)
-        logM_cut_LRG -= 0.3 # 0.0015668245
-        logM1_LRG -= 0.3 # 0.0015668245
-        logM_cut_ELG -= 0.3
-        logM1_ELG -= 0.3
-
+        #logM_cut_LRG -= 0.3 # 0.0015668245
+        #logM1_LRG -= 0.3 # 0.0015668245 # we got rid of the same thing for ELGs (same 2 params)
+        #logM_cut_LRG -= 0.15 # 0.00105305025 
+        #logM1_LRG -= 0.15 # 0.00105305025
+        logM_cut_LRG -= 0.2 # 0.00120306125
+        logM1_LRG -= 0.2 # 0.00120306125
+        
     if "bgs" in path2config:
-        logM_cut_LRG = np.array(logM_cut_LRG)
-        logM1_LRG = np.array(logM1_LRG)
-        alpha_LRG = np.array(alpha_LRG)
-        logM_cut_ELG = np.array(logM_cut_ELG)
-        logM1_ELG = np.array(logM1_ELG)
         alpha_LRG[1] += 0.3
         logM_cut_LRG[1] -= 1.
         logM1_LRG[1] -= 1.
-        logM_cut_ELG -= 0.3
-        logM1_ELG -= 0.3
-    
+
+    """
+    if "elg_highb" in path2config:
+        logM_cut_ELG += 0.3
+        logM1_ELG += 0.3
+        
+    if "bgs_uchuu" in path2config:
+        logM_cut_LRG[:] = 11.88
+        logM1_LRG[:] = 13.02
+        kappa_LRG[:] = 11.65/11.88
+        sigma_LRG[:] = -0.67
+        alpha_LRG[:] = 1.04
+    """
+    if "uchuu" in path2config:
+        logM_cut_ELG += 0.5
+        logM1_ELG += 0.5
+        
+        logM_cut_LRG[:] = 11.88
+        logM1_LRG[:] = 13.02
+        kappa_LRG[:] = 11.65/11.88
+        sigma_LRG[:] = -0.67
+        alpha_LRG[:] = 1.04
+
+        logM_cut_LRG[0] += 0.3
+        logM1_LRG[0] += 0.3
+
     if mode == "prime":
         #logM_cut(z) = logM_cut(z_pivot) + logM_cut_pr*Delta_a
         Delta_a_LRG = 1./(1+z_LRG[0])-1./(1+z_LRG[1])
@@ -211,12 +241,10 @@ def main(path2config, sim_name):
 
     # requested redshifts
     if 'box' in path2config:
-        redshifts = [0.5]
+        redshifts = [0.800] #[0.500, 0.800] # TESTING!#[0.5, 0.8]
     else:
-        redshifts = [0.300, 0.350, 0.400, 0.450, 0.500, 0.575, 0.650, 0.725,  0.800, 0.875, 0.950, 1.025, 1.100, 1.175, 1.250, 1.325, 1.400]
+        redshifts = [0.300, 0.350, 0.400, 0.450, 0.500, 0.575, 0.650, 0.725,  0.800, 0.875, 0.950, 1.025, 1.100]#, 1.175, 1.250, 1.325, 1.400]
     want_rsds = [True, False]
-    print("doing", redshifts)
-    print(sim_name)
 
     if sim_name is None:
         do_all = True
@@ -230,6 +258,7 @@ def main(path2config, sim_name):
         if do_all:
             sim_name = f"AbacusSummit_base_c000_ph{phases[k]:03d}"
         print(sim_name)
+        print(path2config)
         sim_params['sim_name'] = sim_name
         
         for i in range(len(redshifts)):
@@ -337,6 +366,7 @@ def main(path2config, sim_name):
                 print("Done redshift ", redshift, "took time ", time.time() - start)
 
         if "huge" in sim_name: break
+        if not do_all: break
         
 class ArgParseFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass

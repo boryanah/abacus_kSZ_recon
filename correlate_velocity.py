@@ -18,18 +18,22 @@ from reconstruct_lc_catalog import get_nz_str
 
 """
 run with srun
+
 note that you can't do wedges with lc
 # integral of the density squared; density squared times volume for cubic box (otherwise sum of weights squared divided by volume squared times volume)
+
 Usage:
 python correlate_velocity.py --sim_name AbacusSummit_base_c000_ph002 --box_lc lc --stem DESI_LRG --nmesh 1024 --sr 12.5 --rectype MG --convention recsym --want_pk --want_rsd --want_mask --nz_type num_dens/main_lrg_pz_dndz_iron_v0.npz
 """
 
+np.random.seed(300)
+
 DEFAULTS = {}
 DEFAULTS['sim_name'] = "AbacusSummit_base_c000_ph002"
-DEFAULTS['box_lc'] = 'box'
-DEFAULTS['stem'] = 'DESI_LRG' # 'DESI_ELG'
-DEFAULTS['nmesh'] = 512 # 1024
-DEFAULTS['sr'] = 10. # Mpc/h
+DEFAULTS['box_lc'] = 'lc' #'box'
+DEFAULTS['stem'] = 'DESI_LRG'
+DEFAULTS['nmesh'] = 1024
+DEFAULTS['sr'] = 12.5 # Mpc/h
 DEFAULTS['rectype'] = "MG"
 DEFAULTS['convention'] = "recsym"
 DEFAULTS['nz_type'] = 'Gaussian(0.5, 0.4)'
@@ -47,7 +51,7 @@ def get_RRrppi(N1, N2, Lbox, rpbins, pimax, npibins):
     return pairs
 
 def main(sim_name, box_lc, stem, stem2, stem3, nmesh, sr, rectype, convention, nz_type, nz_type2, nz_type3, photoz_error, want_fakelc=False, want_mask=False, want_pk=False, want_rsd=False):
-    want_curb = True
+    want_curb = False #True
     if want_curb:
         curb_zmin = 0.4
         curb_zmax = 0.8
@@ -101,9 +105,11 @@ def main(sim_name, box_lc, stem, stem2, stem3, nmesh, sr, rectype, convention, n
     a = 1./(1+Mean_z)
     
     # directories
-    save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/")
+    save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/new/")
     save_recon_dir = Path(save_dir) / "recon" / sim_name / f"z{Mean_z:.3f}"
-    mock_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/") / sim_name 
+    save_dir_old = Path("/pscratch/sd/b/boryanah/kSZ_recon/")
+    save_recon_dir_old = Path(save_dir_old) / "recon" / sim_name / f"z{Mean_z:.3f}"
+    mock_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/new/mocks_lc_output_kSZ_recon{extra}/") / sim_name 
 
     if box_lc == "lc":
         # load galaxies and randoms
@@ -127,13 +133,8 @@ def main(sim_name, box_lc, stem, stem2, stem3, nmesh, sr, rectype, convention, n
         RAND_POS -= origin
 
         # load data
-        try:
-            data = np.load(save_recon_dir / f"displacements_{tracer}{extra}{fakelc_str}{photoz_str}{mask_str}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}{nz_full_str}.npz")
-        except:
-            if np.isclose(photoz_error, 0.): # old nomenclature
-                data = np.load(save_recon_dir / f"displacements_{tracer}{extra}{fakelc_str}{mask_str}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}{nz_full_str}.npz")
-            else:
-                print("File truly missing"); quit()
+        data = np.load(save_recon_dir / f"displacements_{tracer}{extra}{fakelc_str}{photoz_str}{mask_str}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}{nz_full_str}.npz")
+            
 
         try:
             n_gal = data['n_gals'][0]
@@ -159,8 +160,12 @@ def main(sim_name, box_lc, stem, stem2, stem3, nmesh, sr, rectype, convention, n
         
         
     else:
+        want_make_thinner = False
+        thin_str = "_thin" if want_make_thinner else ""
+        
         # load data
-        data = np.load(save_recon_dir / f"displacements_{tracer}{extra}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}_z{Mean_z:.3f}.npz")
+        data = np.load(save_recon_dir_old / f"displacements_{tracer}{extra}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}_z{Mean_z:.3f}{thin_str}.npz")
+        
         print(data.files) # ['displacements', 'velocities', 'growth_factor', 'Hubble_z']
         Psi_dot = data['displacements'] # cMpc/h
         Psi_dot_rsd = data['displacements_rsd'] # cMpc/h
@@ -169,9 +174,25 @@ def main(sim_name, box_lc, stem, stem2, stem3, nmesh, sr, rectype, convention, n
         POS_RSD = data['positions_rsd']
         RAND_POS = data['random_positions']
         vel = data['velocities'] # km/s
+
+        # use halo vel
+        mock_dir = Path(f"/pscratch/sd/b/boryanah/AbacusHOD_scratch/mocks_box_output_kSZ_recon{extra}/")
+        mock_dir = mock_dir / f"{sim_name}/z{Mean_z:.3f}/"
+        vel = np.load(mock_dir / f"galaxies/{tracer}s_halo_vel.npy") # box only
+
+        # TESTING make thinner
+        from astropy.io import ascii
+        f = ascii.read(mock_dir / f"galaxies/{tracer}s.dat")
+        positions = np.vstack((f['x'], f['y'], f['z'])).T
+        positions %= Lbox
+        
+        if want_make_thinner:
+            z_max = 830.
+            choice = positions[:, 2] < z_max
+            vel = vel[choice]
+            
         unit_los = np.array([0., 0., 1.])#data['unit_los']
         vel_r = np.sum(vel*unit_los, axis=1)
-        print(Psi_dot.shape[0], Psi_dot.shape[0]/2000.**3); quit()
         
     def get_Psi_dot(Psi, want_rsd=False):
         """
@@ -205,13 +226,20 @@ def main(sim_name, box_lc, stem, stem2, stem3, nmesh, sr, rectype, convention, n
         RAND_POS = RAND_POS[choice]
         
         choice = (curb_zmin < Z) & (Z < curb_zmax)
-        print("number of galaxies", np.sum(choice), len(choice)); quit()
+        print("number of galaxies", np.sum(choice), len(choice))
         POS_RSD = POS_RSD[choice]
         POS = POS[choice]
         Psi_dot_rsd_nof_r = Psi_dot_rsd_nof_r[choice]
         Psi_dot_r = Psi_dot_r[choice]
         vel_r = vel_r[choice]
         del choice; gc.collect()
+
+    # print the usual r coefficient
+    Psi_dot_rsd_nof_r_rms = np.sqrt(np.mean(Psi_dot_rsd_nof_r**2))
+    Psi_dot_r_rms = np.sqrt(np.mean(Psi_dot_r**2))
+    vel_r_rms = np.sqrt(np.mean(vel_r**2))
+    print("LOS R", np.mean(Psi_dot_r*vel_r)/(vel_r_rms*Psi_dot_r_rms))
+    print("LOS R (RSD)", np.mean(Psi_dot_rsd_nof_r*vel_r)/(vel_r_rms*Psi_dot_rsd_nof_r_rms))
     
     # load the fields
     positions_rec = {}
@@ -311,7 +339,7 @@ def main(sim_name, box_lc, stem, stem2, stem3, nmesh, sr, rectype, convention, n
             k, Pk_recon = poles_recon.wedges(mu=np.max(muavg), return_k=True, complex=False)
             rk = Pk_cross/np.sqrt(Pk_truth*Pk_recon)
             
-            np.savez(f"data/power_wedges_{tracer}{extra}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}_z{Mean_z:.3f}{rsd_str}.npz", k=k, Pk_cross=Pk_cross, Pk_truth=Pk_truth, Pk_recon=Pk_recon)
+            np.savez(f"data/power_wedges_{tracer}{extra}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}_z{Mean_z:.3f}{thin_str}{rsd_str}.npz", k=k, Pk_cross=Pk_cross, Pk_truth=Pk_truth, Pk_recon=Pk_recon)
             
     else:
 

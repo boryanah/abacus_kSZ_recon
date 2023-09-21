@@ -6,6 +6,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.table import Table
 
+"""
+python get_num_dens.py LRG_main_pz_bin_1
+python get_num_dens.py LRG_main_pz_bin_2
+python get_num_dens.py LRG_main_pz_bin_3
+python get_num_dens.py LRG_main_pz_bin_4
+"""
+
+
 def surface_to_comoving_density(zmin, zmax, surf_dens, H0=100, Om0=0.3):
 
     from astropy.cosmology import FlatLambdaCDM
@@ -32,6 +40,7 @@ if tracer == "ELG":
 elif tracer == "BGS":
     #fn = 'BGS_BRIGHT-21.5_full_nz.txt'
     fn = 'BGS_BRIGHT_full_N_nz.txt'
+    #fn = 'fig19_nz_bgs_svda.dat'
     perc = 100.
 elif tracer == "LRG":
     fn = 'lrg_fig_1_histograms.csv'
@@ -42,9 +51,12 @@ elif tracer == "LRG_main":
 elif tracer == "LRG_extended":
     fn = '/global/cfs/cdirs/desi/users/rongpu/data/lrg_xcorr/dndz/iron_v0.2/extended_lrg_pz_dndz_iron_v0.2_dz_0.02.txt'
     perc = 100.
+elif "LRG_main_pz_bin" in tracer:
+    fn = '/global/cfs/cdirs/desi/users/rongpu/lrg_xcorr/data_products/redshift_dist/main_lrg_pz_dndz_iron_v0.4_dz_0.01.txt'
+    perc = 100.
 perc_str = f"_perc{perc:.1f}" if not np.isclose(perc, 100.) else ""
 
-if tracer == "LRG_main" or tracer == "LRG_extended" or tracer == "BGS":
+if tracer == "LRG_main" or tracer == "LRG_extended" or tracer == "BGS" or "LRG_main_pz_bin" in tracer:
     cat = Table.read(fn, format='ascii.commented_header')
 else:
     cat = Table.read(fn)
@@ -59,9 +71,16 @@ elif tracer == "LRG":
 elif tracer == "LRG_main" or tracer == "LRG_extended":
     comov_dens = surface_to_comoving_density(cat['zmin'], cat['zmax'], cat['all_combined'])
     z_edges = np.append(cat['zmin'], cat['zmax'][-1])
+elif "LRG_main_pz_bin" in tracer:
+    pz_bin = int(tracer.split("LRG_main_pz_bin_")[-1])
+    comov_dens = surface_to_comoving_density(cat['zmin'], cat['zmax'], cat[f'bin_{pz_bin:d}_combined'])
+    z_edges = np.append(cat['zmin'], cat['zmax'][-1])
+    fn = "/"+f"{fn.split('/')[-1].split('.')[0]}"+f'_pz_bin_{pz_bin:d}'+"."
 elif tracer == "BGS":
-    comov_dens = cat['n(z)']
-    z_edges = np.append(cat['zlow'], cat['zhigh'][-1])
+    #comov_dens = cat['n(z)']
+    #z_edges = np.append(cat['zlow'], cat['zhigh'][-1])
+    comov_dens = cat['nz_all,']
+    z_edges = np.append(cat['zlow,'], cat['zhigh,'][-1])
 
 # save file
 print("number density", comov_dens, comov_dens.shape)

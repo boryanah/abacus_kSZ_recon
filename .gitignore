@@ -6,3 +6,11 @@ figs/
 data/
 old_code/
 USEFUL
+*npz
+*png
+*tex
+*npy
+*csv
+*dat
+*txt
+*yaml

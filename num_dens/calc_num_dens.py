@@ -1,5 +1,6 @@
 from pathlib import Path
 import os, gc, glob
+import sys
 
 import numpy as np
 import healpy as hp
@@ -7,6 +8,7 @@ import asdf
 import argparse
 import fitsio
 
+sys.path.append("..")
 from prepare_lc_catalog import relate_chi_z
 
 DEFAULTS = {}
@@ -17,42 +19,22 @@ DEFAULTS['photoz_error'] = 0.
 
 """
 Usage:
-python apply_dndz_mask.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 2. --nz_type Gaussian(0.5,0.4)
-python apply_dndz_mask.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 2. --nz_type Step(0.3,0.9)
-python apply_dndz_mask.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 2. --nz_type num_dens/lrg_fig_1_histograms.npz
+
+#python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG_high_density --photoz_error 0. --nz_type 'Gaussian(0.5,0.4)'
+
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 0. --nz_type 'Gaussian(0.5,0.4)'
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 0. --nz_type 'Gaussian(0.5,0.2)'
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_ELG_uchuu --photoz_error 0. --nz_type 'Gaussian(0.8,0.4)'
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG_uchuu --photoz_error 0. --nz_type 'Gaussian(0.4,0.1)'
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 0. --nz_type 'Step(0.4,0.6)'
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 0. --nz_type 'Step(0.4,0.8)'
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 0. --nz_type 'Step(0.45,0.55)'
+
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG --photoz_error 0. --nz_type main_lrg_pz_dndz_iron_v0.npz
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG_high_density --photoz_error 0. --nz_type extended_lrg_pz_dndz_iron_v0.npz
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_LRG_uchuu --photoz_error 0. --nz_type BGS_BRIGHT_full_N_nz.npz
+python calc_num_dens.py --sim_name AbacusSummit_base_c000_ph002 --stem DESI_ELG_uchuu --photoz_error 0. --nz_type elg_main-800coaddefftime1200-nz-zenodo_perc30.0.npz
 """
-
-def get_down_choice(Z_l, z_l, Delta_z):
-    # apply cuts
-    z_edges = np.linspace(0.1, 2.5, 1001)
-    z_cent = 0.5*(z_edges[1:] + z_edges[:-1])
-    n_tot = len(Z_l)
-    n_per = n_tot/len(z_cent)
-    dNdz, _ = np.histogram(Z_l, bins=z_edges)
-    inds = np.digitize(Z_l, bins=z_edges) - 1
-    w_bin = dNdz/n_per
-    fac = gaussian(Z_l, z_l, Delta_z/2.)
-    fac /= w_bin[inds] # downweight many galaxies in bin
-    #fac /= np.max(fac) # normalize so that probabilities don't exceed 1
-    print(np.mean(Z_l), np.min(Z_l), np.max(Z_l))
-    fac /= np.max(fac[(Z_l > z_l-Delta_z/2.) & (Z_l < z_l+Delta_z/2.)])
-    down_choice = np.random.rand(n_tot) < fac
-    #down_choice[:] = True
-    print("kept fraction (20-30%) = ", np.sum(down_choice)/len(down_choice)*100.)
-    return down_choice
-
-def gaussian(x, mu, sig):
-    """
-    gaussian
-    """
-    return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
-
-def get_mask_ang(mask, RA, DEC, nest, nside, lonlat=True):
-    """
-    function that returns a boolean mask given RA and DEC
-    """
-    ipix = hp.ang2pix(nside, theta=RA, phi=DEC, nest=nest, lonlat=lonlat) # RA, DEC degrees (math convention)
-    return mask[ipix] == 1.
 
 def parse_nztype(nz_type):
     """
@@ -179,12 +161,8 @@ def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
     chi_of_z, z_of_chi = relate_chi_z(sim_name)
     
     # directory where mock catalogs are saved
-    mock_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/mocks_lc_output_kSZ_recon{extra}/")
+    mock_dir = Path(f"/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/new/mocks_lc_output_kSZ_recon{extra}/")
     mock_dir = mock_dir / sim_name 
-
-    # name of the file
-    gal_fn = mock_dir / f"galaxies_{tracer}{fakelc_str}_prerecon_minz{min_z:.3f}_maxz{max_z:.3f}.npz"
-    rand_fn = mock_dir / f"randoms_{tracer}{fakelc_str}_prerecon_minz{min_z:.3f}_maxz{max_z:.3f}.npz"
 
     # read in file names to determine all the available z's
     mask_dir = f"/global/cfs/cdirs/desi/public/cosmosim/AbacusLensing/v1/{sim_name}/"
@@ -196,16 +174,28 @@ def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
     print("redshift sources = ", z_srcs)
 
     # save to file
-    np.load(mock_dir / f"galaxies_{tracer}{fakelc_str}{photoz_str}_prerecon{nz_str}.npz")
-    #RA=RA, DEC=DEC, Z_RSD=Z_RSD, Z=Z, VEL=VEL, POS=POS, POS_RSD=POS_RSD, UNIT_LOS=UNIT_LOS)
+    data = np.load(mock_dir / f"galaxies_{tracer}{fakelc_str}{photoz_str}_prerecon{nz_str}.npz")
+    Z = data['Z']
+    #RA=RA, DEC=DEC, Z_RSD=Z_RSD, Z=Z, VEL=VEL, POS=POS, POS_RSD=POS_RSD, UNIT_LOS=UNIT_LOS
 
     # save to file
-    data = np.load(mock_dir / f"randoms_{tracer}{fakelc_str}{photoz_str}_prerecon{nz_str}.npz")
+    #data = np.load(mock_dir / f"randoms_{tracer}{fakelc_str}{photoz_str}_prerecon{nz_str}.npz")
     #RAND_RA, RAND_DEC=RAND_DEC, RAND_Z=RAND_Z, RAND_POS=RAND_POS)
 
-    # loop through the redshifts and compute the number of galaxies in each
-
+    z_edges = np.linspace(0.1, 2.5, 101)
+    dNdz, _ = np.histogram(Z, bins=z_edges)
+    # TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    """
+    def gaussian(x, mu, sig):
+        return np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+    #z_cent = 0.5*(z_edges[1:] + z_edges[:-1])
+    #print(z_cent[(z_cent < 0.8) & (z_cent > 0.3)])
+    #print(dNdz[(z_cent < 0.8) & (z_cent > 0.3)])
+    #print(gaussian(z_cent[(z_cent < 0.8) & (z_cent > 0.3)], 0.5, 0.2))
+    """
+    # initialize stuff
     z_bins = np.linspace(0.25, 1.15, 21)
+    print(z_bins[1]-z_bins[0])
     z_binc = (z_bins[1:] + z_bins[:-1]) *.5
     num_dens = np.zeros(len(z_binc))
 
@@ -232,8 +222,10 @@ def main(sim_name, stem, nz_type, photoz_error, want_fakelc=False):
         if np.sum(choice) == 0: print("no galaxies in this redshift bin", z_binc[i]); continue
         V = volume*fraction
         N = np.sum(choice)
-        
+        num_dens[i] = N/V
         gc.collect()
+
+    np.savez(f"real{extra}{nz_str}.npz", comov_dens=num_dens, z_edges=z_bins, dNdz=dNdz, z_bins_dNdz=z_edges)
     
 class ArgParseFormatter(argparse.RawDescriptionHelpFormatter, argparse.ArgumentDefaultsHelpFormatter):
     pass
@@ -242,7 +234,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=ArgParseFormatter)
     parser.add_argument('--sim_name', help='Simulation name', default=DEFAULTS['sim_name'])
-    parser.add_argument('--stem', help='Stem file name', default=DEFAULTS['stem'], choices=["DESI_LRG", "DESI_ELG", "DESI_LRG_high_density", "DESI_LRG_bgs", "DESI_ELG_high_density"])
+    parser.add_argument('--stem', help='Stem file name', default=DEFAULTS['stem'])#, choices=["DESI_LRG", "DESI_ELG", "DESI_LRG_high_density", "DESI_LRG_bgs", "DESI_ELG_high_density"])
     parser.add_argument('--photoz_error', help='Percentage error on the photometric redshifts', default=DEFAULTS['photoz_error'], type=float)
     parser.add_argument('--nz_type', help='Type of N(z) distribution: Gaussian(mean, 2sigma), Step(min, max), file name', default=DEFAULTS['nz_type'])
     parser.add_argument('--want_fakelc', help='Want to use the fake light cone?', action='store_true')

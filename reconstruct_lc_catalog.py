@@ -13,8 +13,8 @@ from apply_dndz_mask import parse_nztype
 DEFAULTS = {}
 DEFAULTS['sim_name'] = "AbacusSummit_base_c000_ph002"
 DEFAULTS['stem'] = 'DESI_LRG' # 'DESI_ELG'
-DEFAULTS['nmesh'] = 512 # 1024
-DEFAULTS['sr'] = 10. # Mpc/h
+DEFAULTS['nmesh'] = 1024
+DEFAULTS['sr'] = 12.5 # Mpc/h
 DEFAULTS['rectype'] = "MG"
 DEFAULTS['convention'] = "recsym"
 DEFAULTS['nz_type'] = 'Gaussian(0.5, 0.4)'
@@ -38,13 +38,18 @@ def get_nz_str(nz_type):
     return nz_str
 
 def main(sim_name, stem, stem2, stem3, nmesh, sr, rectype, convention, nz_type, nz_type2, nz_type3, photoz_error, want_fakelc=False, want_mask=False):
-
+    
     # redshift error string
     photoz_str = f"_zerr{photoz_error:.1f}"
     
     # fake light cones
     fakelc_str = "_fakelc" if want_fakelc else ""
     mask_str = "_mask" if want_mask else ""
+
+    # small area (this is kinda stupid)
+    if "_small_area" in nz_type:
+        nz_type = nz_type.split("_small_area")[0]
+        mask_str = "_small_area"
     
     # how many processes to use for reconstruction: 32, 128 physical cpu per node for cori, perlmutter (hyperthreading doubles)
     ncpu = 128
@@ -54,6 +59,7 @@ def main(sim_name, stem, stem2, stem3, nmesh, sr, rectype, convention, nz_type, 
 
     # initiate stems
     stems = [stem]
+    print(sim_name, nz_type, nz_type2, nz_type3)
     nz_strs = [get_nz_str(nz_type)]
     if stem2 is not None:
         stems.append(stem2)
@@ -108,6 +114,14 @@ def main(sim_name, stem, stem2, stem3, nmesh, sr, rectype, convention, nz_type, 
     H_z = cosmo.hubble_function(Mean_z)
     los = 'local'
 
+    # directory where the reconstructed mock catalogs are saved
+    save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/")
+    save_recon_dir = Path(save_dir) / "recon" / sim_name / f"z{Mean_z:.3f}"
+    os.makedirs(save_recon_dir, exist_ok=True)
+
+    # file to save to
+    final_fn = save_recon_dir / f"displacements_{tracer_extra_str}{fakelc_str}{photoz_str}{mask_str}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}{nz_full_str}.npz"
+    #if os.path.exists(final_fn): return
     
     # loop over all tracers
     n_gals = []
@@ -146,11 +160,6 @@ def main(sim_name, stem, stem2, stem3, nmesh, sr, rectype, convention, nz_type, 
         print("RAND RA min/max, DEC min/max, Z min/max", RAND_RA.min(), RAND_RA.max(), RAND_DEC.min(), RAND_DEC.max(), RAND_Z.min(), RAND_Z.max())
     n_gals = np.array(n_gals)
     
-    # directory where the reconstructed mock catalogs are saved
-    save_dir = Path("/global/cfs/cdirs/desi/users/boryanah/kSZ_recon/")
-    save_recon_dir = Path(save_dir) / "recon" / sim_name / f"z{Mean_z:.3f}"
-    os.makedirs(save_recon_dir, exist_ok=True)
-
     # transform into Cartesian coordinates
     PositionRSD = utils.sky_to_cartesian(cosmo.comoving_radial_distance(Z_RSD), RA, DEC)
     Position = utils.sky_to_cartesian(cosmo.comoving_radial_distance(Z), RA, DEC)
@@ -160,15 +169,15 @@ def main(sim_name, stem, stem2, stem3, nmesh, sr, rectype, convention, nz_type, 
     print('Recon First tracer')
     recon_tracer = recfunc(f=ff, bias=bias, nmesh=nmesh, los=los, positions=Position, # used only to define box size if not provided
                            nthreads=int(ncpu), fft_engine='fftw', fft_plan='estimate', dtype='f4', wrap=True) # probably doesn't matter; in principle, False
-    print('grid set up',flush=True)
+    print('grid set up', flush=True)
     recon_tracer.assign_data(Position)#, dat_cat['WEIGHT'])
-    print('data assigned',flush=True)
+    print('data assigned', flush=True)
     recon_tracer.assign_randoms(RandomPosition)#, dat_cat['WEIGHT'])
-    print('randoms assigned',flush=True)
+    print('randoms assigned', flush=True)
     recon_tracer.set_density_contrast(smoothing_radius=sr)
     print('density constrast calculated, now doing recon',flush=True)
     recon_tracer.run()
-    print('recon has been run',flush=True)
+    print('recon has been run', flush=True)
 
     # read the displacements in real space
     if rectype == 'IFTP':
@@ -181,15 +190,15 @@ def main(sim_name, stem, stem2, stem3, nmesh, sr, rectype, convention, nz_type, 
     print('Recon Second tracer')
     recon_tracer = recfunc(f=ff, bias=bias, nmesh=nmesh, los=los, positions=PositionRSD,
                            nthreads=int(ncpu), fft_engine='fftw', fft_plan='estimate', dtype='f4', wrap=True)
-    print('grid set up',flush=True)
+    print('grid set up', flush=True)
     recon_tracer.assign_data(PositionRSD)#, dat_cat['WEIGHT'])
-    print('data assigned',flush=True)
+    print('data assigned', flush=True)
     recon_tracer.assign_randoms(RandomPosition)#, dat_cat['WEIGHT'])
-    print('randoms assigned',flush=True)
+    print('randoms assigned', flush=True)
     recon_tracer.set_density_contrast(smoothing_radius=sr)
-    print('density constrast calculated, now doing recon',flush=True)
+    print('density constrast calculated, now doing recon', flush=True)
     recon_tracer.run()
-    print('recon has been run',flush=True)
+    print('recon has been run', flush=True)
 
     # read the displacements in real and redshift space (rsd has the (1+f) factor in the LOS direction)
     if rectype == "IFTP":
@@ -202,7 +211,7 @@ def main(sim_name, stem, stem2, stem3, nmesh, sr, rectype, convention, nz_type, 
     random_displacements_rsd_nof = recon_tracer.read_shifts(RandomPosition, field='disp')
 
     # save the displacements
-    np.savez(save_recon_dir / f"displacements_{tracer_extra_str}{fakelc_str}{photoz_str}{mask_str}_postrecon_R{sr:.2f}_b{bias:.1f}_nmesh{nmesh:d}_{convention}_{rectype}{nz_full_str}.npz",
+    np.savez(final_fn,
              displacements=displacements, displacements_rsd=displacements_rsd, velocities=VEL, unit_los=UNIT_LOS, growth_factor=ff, Hubble_z=H_z,
              random_displacements_rsd=random_displacements_rsd, random_displacements=random_displacements, displacements_rsd_nof=displacements_rsd_nof,
              random_displacements_rsd_nof=random_displacements_rsd_nof, n_gals=n_gals)
@@ -214,9 +223,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=ArgParseFormatter)
     parser.add_argument('--sim_name', help='Simulation name', default=DEFAULTS['sim_name'])
-    parser.add_argument('--stem', help='Stem file name', default=DEFAULTS['stem'], choices=["DESI_LRG", "DESI_ELG", "DESI_LRG_high_density", "DESI_LRG_bgs", "DESI_ELG_high_density"])
-    parser.add_argument('--stem2', help='Stem file name 2', default=None, choices=["DESI_LRG", "DESI_ELG", "DESI_LRG_high_density", "DESI_LRG_bgs", "DESI_ELG_high_density"])
-    parser.add_argument('--stem3', help='Stem file name 3', default=None, choices=["DESI_LRG", "DESI_ELG", "DESI_LRG_high_density", "DESI_LRG_bgs", "DESI_ELG_high_density"])
+    parser.add_argument('--stem', help='Stem file name', default=DEFAULTS['stem'])#, choices=["DESI_LRG", "DESI_ELG", "DESI_LRG_high_density", "DESI_LRG_bgs", "DESI_ELG_high_density"])
+    parser.add_argument('--stem2', help='Stem file name 2', default=None)#, choices=["DESI_LRG", "DESI_ELG", "DESI_LRG_high_density", "DESI_LRG_bgs", "DESI_ELG_high_density"])
+    parser.add_argument('--stem3', help='Stem file name 3', default=None)#, choices=["DESI_LRG", "DESI_ELG", "DESI_LRG_high_density", "DESI_LRG_bgs", "DESI_ELG_high_density"])
     parser.add_argument('--nmesh', help='Number of cells per dimension for reconstruction', type=int, default=DEFAULTS['nmesh'])
     parser.add_argument('--sr', help='Smoothing radius', type=float, default=DEFAULTS['sr'])
     parser.add_argument('--rectype', help='Reconstruction type', default=DEFAULTS['rectype'], choices=["IFT", "MG", "IFTP"])
